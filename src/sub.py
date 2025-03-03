@@ -142,7 +142,7 @@ class SimpleTransformer(nn.Module):
             nn.LayerNorm(d_model),
             nn.Linear(d_model, 128),
             nn.ReLU(),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
             nn.Linear(128, 64),
             nn.ReLU(),
             nn.Linear(64, 1)
@@ -359,15 +359,15 @@ test_loader  = DataLoader(test_dataset,  batch_size=64, shuffle=False, collate_f
 
 model = SimpleTransformer(
     vocab_size=vocab_size,
-    d_model=48,
+    d_model=128,
     nhead=4,
-    num_layers=2,
+    num_layers=8,
 )
 model.to(DEVICE)
 
 criterion = SMAPELoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20, 30], gamma=0.1)
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100], gamma=0.1)
 
 
 
