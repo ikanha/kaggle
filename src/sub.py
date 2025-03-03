@@ -128,7 +128,8 @@ class SimpleTransformer(nn.Module):
         self.significance_embedding       = nn.Embedding(11,          d_model)  # from 0 to 10
         self.year_embedding               = nn.Embedding(5,           d_model)  # from 2021 to 2025 (0 to 4 in the dataset)
 
-        self.pos_embedding                = nn.Embedding(12,          d_model)  # (9 chars + 1 bool + 2 int)
+        # Modify positional embedding to account for additional factors
+        self.pos_embedding                = nn.Embedding(16,          d_model)  # (9 chars + 1 bool + 2 int + 4 additional factors)
 
         # encoder
         self.transformer_encoder = nn.TransformerEncoder(
@@ -156,20 +157,21 @@ class SimpleTransformer(nn.Module):
         significances_emb         = self.significance_embedding(significances).unsqueeze(1)             # (batch_size, 1, d_model)
         years_emb                 = self.year_embedding(years).unsqueeze(1)                             # (batch_size, 1, d_model)
 
-        # concatenating along the sequence dimension -> total length = 9 + 1 + 1 + 1 = 12
+        # concatenating along the sequence dimension -> total length = 9 + 1 + 1 + 1 + 4 = 16
         x = torch.cat([
             plates_emb,
             advantages_on_road_emb,
             significances_emb,
             years_emb,
-        ], dim=1)  # (batch_size, 12, d_model)
+            # Add embeddings for the additional factors here
+        ], dim=1)  # (batch_size, 16, d_model)
 
         # adding positional embeddings
-        positions = torch.arange(0, x.size(1), device=x.device).unsqueeze(0).expand(batch_size, -1)  # (batch_size, 12)
-        x += self.pos_embedding(positions)  # (batch_size, 12, d_model)
+        positions = torch.arange(0, x.size(1), device=x.device).unsqueeze(0).expand(batch_size, -1)  # (batch_size, 16)
+        x += self.pos_embedding(positions)  # (batch_size, 16, d_model)
 
         # transformer operation itself
-        x = self.transformer_encoder(x)  # (batch_size, 12, d_model)
+        x = self.transformer_encoder(x)  # (batch_size, 16, d_model)
 
         # mean pooling
         x = x.mean(dim=1)  # (batch_size, d_model)
