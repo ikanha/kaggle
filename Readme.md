@@ -1,7 +1,7 @@
 # Project Title
 
 ## Description
-A brief description of what this project does and who it's for.
+this is for kaggle competition that we are working on
 
 ## Installation
 1. Clone the repository:
@@ -33,7 +33,7 @@ A brief description of what this project does and who it's for.
 ## Usage
 1. Run the main script:
     ```bash
-    python main.py
+    python sub.py
     ```
 
 2. Follow the instructions provided by the script.
