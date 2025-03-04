@@ -142,7 +142,7 @@ class SimpleTransformer(nn.Module):
             nn.LayerNorm(d_model),
             nn.Linear(d_model, 128),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.1),
             nn.Linear(128, 64),
             nn.ReLU(),
             nn.Linear(64, 1)
@@ -192,30 +192,34 @@ def train_model(model, criterion, optimizer, train_loader, val_loader=None, epoc
         total_loss = 0.0
         train_mape_sum = 0.0
 
-        for plates, advantages_on_road, significances, years, prices in train_loader:
-            batch_size = plates.size(0)
+        # Wrap the training loop with tqdm
+        with tqdm(total=train_length, desc=f"Epoch [{epoch + 1}/{epochs}]", unit='batch') as pbar:
+            for plates, advantages_on_road, significances, years, prices in train_loader:
+                batch_size = plates.size(0)
 
-            optimizer.zero_grad()
+                optimizer.zero_grad()
 
-            plates, advantages_on_road, significances, years, prices = to_device_helper(
-                (plates, advantages_on_road, significances, years, prices),
-                device
-            )
+                plates, advantages_on_road, significances, years, prices = to_device_helper(
+                    (plates, advantages_on_road, significances, years, prices),
+                    device
+                )
 
-            preds = model(plates, advantages_on_road, significances, years).squeeze()  # (batch_size,)
-            loss = criterion(preds, prices)
-            loss.backward()
-            optimizer.step()
+                preds = model(plates, advantages_on_road, significances, years).squeeze()  # (batch_size,)
+                loss = criterion(preds, prices)
+                loss.backward()
+                optimizer.step()
 
-            total_loss += loss.item() * batch_size
-            train_mape_sum += mape_loss(preds, prices).item() * batch_size
+                total_loss += loss.item() * batch_size
+                train_mape_sum += mape_loss(preds, prices).item() * batch_size
+
+                # Update the progress bar
+                pbar.update(batch_size)
 
         train_avg_loss = total_loss / train_length
         train_avg_mape = train_mape_sum / train_length
 
         if val_loader is None:
-            print(f"Epoch [{epoch + 1}/{epochs}] | "
-                  f"Train Loss: {train_avg_loss:.4f}, Train MAPE: {train_avg_mape:.2f}%")
+            print(f"Train Loss: {train_avg_loss:.4f}, Train MAPE: {train_avg_mape:.2f}%")
             continue
 
         # validation
@@ -242,12 +246,12 @@ def train_model(model, criterion, optimizer, train_loader, val_loader=None, epoc
         val_avg_loss = val_loss / val_length
         val_avg_mape = val_mape_sum / val_length
 
-        print(f"Epoch [{epoch+1}/{epochs}] | "
+        print(f"Epoch [{epoch + 1}/{epochs}] | "
               f"Train Loss: {train_avg_loss:.4f}, Train MAPE: {train_avg_mape:.2f}% | "
               f"Val Loss: {val_avg_loss:.4f}, Val MAPE: {val_avg_mape:.2f}%")
 
         if scheduler is not None:
-            scheduler.step()
+            scheduler.step(val_avg_loss)
 
 RANDOM_STATE = 37
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -369,18 +373,18 @@ model = SimpleTransformer(
     vocab_size=vocab_size,
     d_model=48,
     nhead=4,
-    num_layers=2,
+    num_layers=3,
 )
 model.to(DEVICE)
 
-
+# lr=1e-3
 criterion = SMAPELoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100], gamma=0.1)
 
 
 
-EPOCHS = 100
+EPOCHS = 250
 train_model(model, criterion, optimizer, train_loader, val_loader=val_loader, epochs=EPOCHS, device=DEVICE, scheduler=scheduler)
 
 
