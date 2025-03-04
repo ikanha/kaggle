@@ -3,14 +3,14 @@ import optuna
 from tqdm import tqdm
 import csv
 
-EPOCHS = 1
+EPOCHS = 50
 
 # Define the objective function for Optuna
 def objective(trial):
     # Suggest hyperparameters
     d_model = trial.suggest_int('d_model', 128, 512)
-    nhead = trial.suggest_int('nhead', 2, 32)
-    num_layers = trial.suggest_int('num_layers', 6, 1024)
+    nhead = trial.suggest_int('nhead', 2, 12)
+    num_layers = trial.suggest_int('num_layers', 6, 32)
     lr = trial.suggest_float('lr', 1e-5, 1e-3, log=True)
     dropout = trial.suggest_float('dropout', 0.1, 0.5)
 

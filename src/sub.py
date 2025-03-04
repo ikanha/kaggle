@@ -357,16 +357,25 @@ test_loader  = DataLoader(test_dataset,  batch_size=64, shuffle=False, collate_f
 
 
 
+# model = SimpleTransformer(
+#     vocab_size=vocab_size,
+#     d_model=128,
+#     nhead=4,
+#     num_layers=8,
+# )
+# model.to(DEVICE)
+
 model = SimpleTransformer(
     vocab_size=vocab_size,
-    d_model=128,
+    d_model=48,
     nhead=4,
-    num_layers=8,
+    num_layers=2,
 )
 model.to(DEVICE)
 
+
 criterion = SMAPELoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100], gamma=0.1)
 
 

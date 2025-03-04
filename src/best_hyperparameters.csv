@@ -1,0 +1,6 @@
+Parameter,Value
+d_model,232
+nhead,4
+num_layers,27
+lr,0.00030086553844760816
+dropout,0.2973311064148532
