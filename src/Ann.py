@@ -18,16 +18,16 @@ class Ann(nn.Module):
         self.year_embedding = nn.Embedding(5, d_model)
 
         self.fc = nn.Sequential(
-            nn.LayerNorm(d_model),
-            nn.Linear(d_model, 256),
-            nn.ReLU(),
-            nn.BatchNorm1d(256),
-            nn.Dropout(0.2),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.BatchNorm1d(128),
-            nn.Linear(128, 1)
-        )
+        nn.LayerNorm(d_model),
+        nn.Linear(d_model, 128),
+        nn.BatchNorm1d(128),
+        nn.ReLU(),
+        nn.Dropout(0.1),
+        nn.Linear(128, 64),
+        nn.BatchNorm1d(64),
+        nn.ReLU(),
+        nn.Linear(64, 1)
+)
 
         # Xavier Initialization
         for m in self.modules():
