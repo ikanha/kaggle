@@ -428,7 +428,7 @@ train_model(model, criterion, optimizer, train_loader, val_loader=val_loader, ep
 
 
 model.eval()
-criterion = SMAPELoss()
+
 
 test_loss = 0.0
 
