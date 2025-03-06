@@ -1,15 +1,14 @@
-from DataLoader import train_loader, val_loader, test_loader, vocab_size
+from DataLoader import train_loader, val_loader, test_loader, PositionalEncoding, vocab_size
 import torch.nn as nn
 import torch
-from utils import SMAPELoss, mape_loss, to_device_helper ,PositionalEncoding
+from sub import mape_loss, to_device_helper
 from tqdm import tqdm
 import torch.optim as optim
-import math
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 class Ann(nn.Module):
-    def __init__(self, vocab_size: int, d_model: int = 128, nhead: int = 4, num_layers: int = 2):
+    def __init__(self, vocab_size: int, d_model: int = 256, nhead: int = 4, num_layers: int = 4):
         super().__init__()
 
         self.plate_embedding = nn.Embedding(vocab_size, d_model)
@@ -17,33 +16,47 @@ class Ann(nn.Module):
         self.significance_embedding = nn.Embedding(11, d_model)
         self.year_embedding = nn.Embedding(5, d_model)
 
+        # Transformer Encoder for better feature extraction
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, 
+                                                   dim_feedforward=512, dropout=0.3, 
+                                                   activation="gelu", batch_first=True)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
         self.fc = nn.Sequential(
-        nn.LayerNorm(d_model),
-        nn.Linear(d_model, 128),
-        nn.BatchNorm1d(128),
-        nn.ReLU(),
-        nn.Dropout(0.1),
-        nn.Linear(128, 64),
-        nn.BatchNorm1d(64),
-        nn.ReLU(),
-        nn.Linear(64, 1)
-)
+            nn.LayerNorm(d_model),
+            nn.Linear(d_model, 256),
+            nn.BatchNorm1d(256),
+            nn.GELU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.GELU(),
+            nn.Linear(128, 1)
+        )
+
+        # Xavier Initialization
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Embedding):
+                nn.init.xavier_uniform_(m.weight)
 
     def forward(self, plates, advantages_on_road, significances, years):
-        batch_size = plates.size(0)
-
-        plates_emb = self.plate_embedding(plates)  # (batch_size, 9, d_model)
-        advantages_on_road_emb = self.advantage_on_road_embedding(advantages_on_road).unsqueeze(1)  # (batch_size, 1, d_model)
+        plates_emb = self.plate_embedding(plates)  
+        advantages_on_road_emb = self.advantage_on_road_embedding(advantages_on_road).unsqueeze(1)
         significances_emb = self.significance_embedding(significances).unsqueeze(1)
         years_emb = self.year_embedding(years).unsqueeze(1)
 
-        # Concatenate embeddings (sequence length = 12)
-        x = torch.cat([plates_emb, advantages_on_road_emb, significances_emb, years_emb], dim=1)  # (batch_size, 12, d_model)
+        x = torch.cat([plates_emb, advantages_on_road_emb, significances_emb, years_emb], dim=1)
+
+        # Apply Transformer Encoder
+        x = self.transformer_encoder(x)
 
         # Mean Pooling
-        x = x.mean(dim=1)  # (batch_size, d_model)
+        x = x.mean(dim=1)
 
-        # Fully Connected Layer
         return self.fc(x)
 
 
@@ -69,8 +82,7 @@ def train_model(model, criterion, optimizer, train_loader, val_loader=None, epoc
                 loss = criterion(preds, prices)
                 loss.backward()
 
-                # Gradient Clipping
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.5)  # Gradient Clipping
 
                 optimizer.step()
 
@@ -110,27 +122,25 @@ def train_model(model, criterion, optimizer, train_loader, val_loader=None, epoc
               f"Val Loss: {val_avg_loss:.4f}, Val MAPE: {val_avg_mape:.2f}%")
 
         if scheduler is not None:
-            scheduler.step()  # Reduce LR on plateau
+            scheduler.step(val_avg_loss)
 
 
 # Model Initialization
 model = Ann(
     vocab_size=vocab_size,
-    d_model=48,
+    d_model=256,  # Increased embedding size
     nhead=4,
-    num_layers=2,
+    num_layers=4  # More transformer layers for deeper feature learning
 )
 model.to(DEVICE)
 
-criterion = SMAPELoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100], gamma=0.1)
+criterion = mape_loss  # Keeping the original MAPE loss function
+optimizer = optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-4)  # Lower LR for better convergence
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
 
 EPOCHS = 250
 train_model(model, criterion, optimizer, train_loader, val_loader=val_loader, epochs=EPOCHS, device=DEVICE, scheduler=scheduler)
-
-test_loss = 0.0
-
-
-#save model
-torch.save(model.state_dict(), 'model01.pth')
+ 
+ 
+ # save the model
+torch.save(model.state_dict(), '01model.pth')

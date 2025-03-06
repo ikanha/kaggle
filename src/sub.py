@@ -104,66 +104,6 @@ def mape_loss(y_pred, y_true, epsilon: float = 1e-8):
     return 100.0 * torch.mean(numerator / denominator)
 
 
-# class SimpleTransformer(nn.Module):
-#     def __init__(self, vocab_size: int, d_model: int = 48, nhead: int = 4, num_layers: int = 2):
-#         super().__init__()
-
-#         # embeddings
-#         self.plate_embedding              = nn.Embedding(vocab_size,  d_model)
-#         self.advantage_on_road_embedding  = nn.Embedding(2,           d_model)  # 0 or 1
-#         self.significance_embedding       = nn.Embedding(11,          d_model)  # from 0 to 10
-#         self.year_embedding               = nn.Embedding(5,           d_model)  # from 2021 to 2025 (0 to 4 in the dataset)
-
-#         # Modify positional embedding to account for additional factors
-#         self.pos_embedding                = nn.Embedding(16,          d_model)  # (9 chars + 1 bool + 2 int + 4 additional factors)
-
-#         # encoder
-#         self.transformer_encoder = nn.TransformerEncoder(
-#             nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, batch_first=True),
-#             num_layers=num_layers
-#         )
-
-#         # full-connected, output
-#         self.fc = nn.Sequential(
-#             nn.LayerNorm(d_model),
-#             nn.Linear(d_model, 128),
-#             nn.ReLU(),
-#             nn.Dropout(0.1),
-#             nn.Linear(128, 64),
-#             nn.ReLU(),
-#             nn.Linear(64, 1)
-#         )
-
-#     def forward(self, plates, advantages_on_road, significances, years):
-#         batch_size = plates.size(0)
-
-#         # embedding each input
-#         plates_emb                = self.plate_embedding(plates)                                        # (batch_size, 9, d_model)
-#         advantages_on_road_emb    = self.advantage_on_road_embedding(advantages_on_road).unsqueeze(1)   # (batch_size, 1, d_model)
-#         significances_emb         = self.significance_embedding(significances).unsqueeze(1)             # (batch_size, 1, d_model)
-#         years_emb                 = self.year_embedding(years).unsqueeze(1)                             # (batch_size, 1, d_model)
-
-#         # concatenating along the sequence dimension -> total length = 9 + 1 + 1 + 1 + 4 = 16
-#         x = torch.cat([
-#             plates_emb,
-#             advantages_on_road_emb,
-#             significances_emb,
-#             years_emb,
-#             # Add embeddings for the additional factors here
-#         ], dim=1)  # (batch_size, 16, d_model)
-
-#         # adding positional embeddings
-#         positions = torch.arange(0, x.size(1), device=x.device).unsqueeze(0).expand(batch_size, -1)  # (batch_size, 16)
-#         x = self.pos_embedding(positions)  # (batch_size, 16, d_model)
-
-#         # transformer operation itself
-#         x = self.transformer_encoder(x)  # (batch_size, 16, d_model)
-
-#         # mean pooling
-#         x = x.mean(dim=1)  # (batch_size, d_model)
-
-#         # applying the final full-connected layer
-#         return self.fc(x)
 
 class SimpleTransformer(nn.Module):
     def __init__(self, vocab_size: int, d_model: int = 48, nhead: int = 4, num_layers: int = 2):
@@ -416,14 +356,14 @@ model = SimpleTransformer(
 )
 model.to(DEVICE)
 
-# lr=1e-3
+
 criterion = SMAPELoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100], gamma=0.1)
 
 
 
-EPOCHS = 250
+EPOCHS = 150
 train_model(model, criterion, optimizer, train_loader, val_loader=val_loader, epochs=EPOCHS, device=DEVICE, scheduler=scheduler)
 
 
